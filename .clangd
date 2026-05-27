@@ -1,3 +1,4 @@
 Diagnostics:
-  Suppress: "*"
+  Suppress:
+    - "pp_including_mainfile_in_preamble"
   UnusedIncludes: Strict
