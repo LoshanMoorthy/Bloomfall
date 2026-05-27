@@ -1,0 +1,8 @@
+build/
+.cache/
+*.exe
+*.lib
+*.pdb
+*.obj
+compile_commands.json
+external/SDL2/
