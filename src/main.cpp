@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 
+#include "game/iso_plane.h"
 #include "game/player.h"
 
 const int WINDOW_WIDTH = 1280;
@@ -101,6 +102,8 @@ int main(int argc, char *argv[]) {
         SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
         SDL_RenderClear(renderer);
 
+        render_iso_plane(renderer, deep_rock_texture, WINDOW_WIDTH);
+
         move_player(player, keys, delta_time, walls);
         clamp_player_to_window(player, WINDOW_WIDTH, WINDOW_HEIGHT);
         update_player_rect(player);
@@ -110,20 +113,6 @@ int main(int argc, char *argv[]) {
         for (const SDL_Rect &wall : walls) {
             SDL_RenderFillRect(renderer, &wall);
         }
-
-        SDL_Rect dst{
-            300,
-            300,
-            128,
-            128
-        };
-
-        SDL_RenderCopy(
-            renderer,
-            deep_rock_texture,
-            nullptr,
-            &dst
-        );
 
         SDL_RenderPresent(renderer);
 

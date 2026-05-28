@@ -47,6 +47,7 @@ NEXT
     - shadows
     - UI
     - OpenGL backend
+    - use Wave Function Collapse for world gen? (maybe too optimistic)
 
 Notes:
 Concepts used
@@ -74,3 +75,30 @@ Current collision strat:
 - if collision -> revert X
 - move on Y
 - if collision -> revert Y
+
+Isometric Rendering
+----------------
+Normal 2D is rendered:
+screen_x = x * tile_width
+screen_y = y * tile_height
+
+Isometric:
+screen_x = (x - y) * (tile_width / 2)
+screen_y = (x + y) * (tile_height / 2)
+
+The world is still just normal 2d coordinates/grid.
+Only thing that changes is the rendering which renders the grid in a
+"diamond" form giving the illusion of fake depth/perspective.
+
+Potentially:
+world[x][y]
+or..
+world[x][y][z]
+
+Which then would allow:
+- block placing
+- mining
+- stacked tiles
+- caves/underground system
+
+
