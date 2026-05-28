@@ -1,6 +1,9 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <iostream>
 #include <vector>
+
+#include "game/player.h"
 
 const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 720;
@@ -8,26 +11,17 @@ const int WINDOW_HEIGHT = 720;
 const int TARGET_FPS = 144;
 const int FRAME_DELAY_MS = 1000 / TARGET_FPS;
 
-struct Player {
-    float x = 100.0f;
-    float y = 100.0f;
-    int size = 50;
-    float speed = 300.0f;
-    SDL_Rect rect{};
-};
-
-void update_player_rect(Player &player) {
-    player.rect.x = static_cast<int>(player.x);
-    player.rect.y = static_cast<int>(player.y);
-    player.rect.w = player.size;
-    player.rect.h = player.size;
-}
-
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cout << "SDL_init failed: " << SDL_GetError() << "\n";
         return 1;
     }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        std::cout << "IMG_Init failed: " << IMG_GetError() << "\n";
+        return 1;
+    }
+
     SDL_Window *window = SDL_CreateWindow(
         "Bloomfall",
         SDL_WINDOWPOS_CENTERED,
@@ -49,6 +43,27 @@ int main(int argc, char *argv[]) {
         SDL_RENDERER_ACCELERATED
     );
 
+    SDL_Texture *deep_rock_texture = nullptr;
+
+    SDL_Surface *surface =
+        IMG_Load("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
+
+    if (surface == nullptr) {
+        std::cout << "IMG_Load failed: " << IMG_GetError() << "\n";
+        return 1;
+    }
+
+    deep_rock_texture =
+        SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_FreeSurface(surface);
+
+    if (deep_rock_texture == nullptr) {
+        std::cout << "SDL_CreateTextureFromSurface failed: "
+                  << SDL_GetError() << "\n";
+        return 1;
+    }
+
     Player player;
     player.rect = {
         static_cast<int>(player.x),
@@ -63,7 +78,6 @@ int main(int argc, char *argv[]) {
         {200, 150, 300, 50},
         {800, 400, 50, 200}
     };
-    SDL_Rect wall{500, 250, 100, 250};
 
     bool running = true;
     SDL_Event event;
@@ -87,60 +101,29 @@ int main(int argc, char *argv[]) {
         SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
         SDL_RenderClear(renderer);
 
-        float old_x = player.x;
-
-        if (keys[SDL_SCANCODE_A])
-            player.x -= player.speed * delta_time;
-        if (keys[SDL_SCANCODE_D])
-            player.x += player.speed * delta_time;
-
+        move_player(player, keys, delta_time, walls);
+        clamp_player_to_window(player, WINDOW_WIDTH, WINDOW_HEIGHT);
         update_player_rect(player);
 
-        // AABB collision check
-        for (const SDL_Rect &wall : walls) {
-            if (SDL_HasIntersection(&player.rect, &wall)) {
-                player.x = old_x;
-                update_player_rect(player);
-            }
-        }
-
-        float old_y = player.y;
-
-        if (keys[SDL_SCANCODE_W])
-            player.y -= player.speed * delta_time;
-        if (keys[SDL_SCANCODE_S])
-            player.y += player.speed * delta_time;
-
-        update_player_rect(player);
-
-        // AABB collision check
-        for (const SDL_Rect &wall : walls) {
-            if (SDL_HasIntersection(&player.rect, &wall)) {
-                player.y = old_y;
-                update_player_rect(player);
-            }
-        }
-        if (player.x < 0.0f)
-            player.x = 0.0f;
-
-        if (player.x > WINDOW_WIDTH - player.size)
-            player.x = static_cast<float>(WINDOW_WIDTH - player.size);
-
-        if (player.y < 0.0f)
-            player.y = 0.0f;
-
-        if (player.y > WINDOW_HEIGHT - player.size)
-            player.y = static_cast<float>(WINDOW_HEIGHT - player.size);
-
-        update_player_rect(player);
-
-        SDL_SetRenderDrawColor(renderer, 80, 180, 120, 255);
-        SDL_RenderFillRect(renderer, &player.rect);
-
+        render_player(renderer, player);
         SDL_SetRenderDrawColor(renderer, 180, 80, 80, 255);
         for (const SDL_Rect &wall : walls) {
             SDL_RenderFillRect(renderer, &wall);
         }
+
+        SDL_Rect dst{
+            300,
+            300,
+            128,
+            128
+        };
+
+        SDL_RenderCopy(
+            renderer,
+            deep_rock_texture,
+            nullptr,
+            &dst
+        );
 
         SDL_RenderPresent(renderer);
 

@@ -1,0 +1,76 @@
+Bloomfall roadmap + notes for myself
+----------------------------
+
+[X] SDL window + renderer
+[X] Game loop
+[X] Delta time
+[X] Player movement
+[X] Window bounds collision
+[X] AABB wall collision
+[X] Multiple walls
+[X] Code cleanup
+
+NEXT
+----
+
+[ ] Tilemap rendering
+    - find and load a tileset PNG
+    - render tile grid
+    - learn source rectangles
+
+[ ] Tile collision
+    - wall tiles
+    - collision map
+    - iterate tile grid
+
+[ ] Camera system
+    - camera offset
+    - follow player
+    - world vs screen coordinates?
+
+[ ] Sprite rendering
+    - SDL_Texture
+    - SDL_RenderCopy
+    - sprite sheets
+
+[ ] Basic world
+    - gameplay?
+    - trees, grass, pathways, obstacles
+
+[ ] EC...Maybe?
+    - enemy struct/classes
+    - update/render seperation
+
+[ ] others
+    - particles!!
+    - lighting!!
+    - shadows
+    - UI
+    - OpenGL backend
+
+Notes:
+Concepts used
+
+Coordinate System
+----------------
+(0,0)
+
+X increases -> right
+Y increases -> down
+
+AABB Collision
+----------------
+Axis-Aligned Bounding Box
+
+Rectangles overlap if:
+
+player.x < wall.x + wall.w
+player.x + player.w > wall.x
+player.y < wall.y + wall.h
+player.y + player.h > wall.y
+
+Current collision strat:
+- move on X
+- if collision -> revert X
+- move on Y
+- if collision -> revert Y

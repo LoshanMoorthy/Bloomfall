@@ -7,10 +7,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(SDL2 REQUIRED)
+find_package(SDL2_image REQUIRED)
 
-file(GLOB_RECURSE BLOOMFALL_SOURCES
+file(GLOB_RECURSE BLOOMFALL_SOURCES CONFIGURE_DEPENDS
     src/core/*.cpp
     src/game/*.cpp
+    src/graphics/*.cpp
     src/main.cpp
 )
 
@@ -26,6 +28,7 @@ target_link_libraries(Bloomfall
     PRIVATE
         SDL2::SDL2
         SDL2::SDL2main
+        SDL2_image::SDL2_image
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
