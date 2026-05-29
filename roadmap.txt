@@ -101,4 +101,41 @@ Which then would allow:
 - stacked tiles
 - caves/underground system
 
+Cube Rendering (2D iso, flat-shaded)
+----------------
+This topic is an "installment" to the above.
 
+A "cube" is just 3 flat-colered faces drawn tat the right screen
+offsets. No texture, no 3D, no OpenGL. Basically, the 3D look is fake:
+It comes from drawing a top diamond + 2 side faces in 3 brightnesses.
+
+That means everything is built from ONE point:
+T = top corner of the dia.
+
+T is projected like a normal iso tile, but with a height term.
+
+cx = origin_x + (x - y) * (tile_width / 2)  - camera.x
+cy = origin_y + (x + y) * (tile_height / 2) - camera.y - z * cube_h
+
+So the only new thing compared to a flat iso is - z * cube_h.
+Higher z just pushes the cube UP on screen so just a smaller y.
+world[x][y][z].
+
+The 7 points (hw = tile_width/2, hh = tile_height/2):
+
+Top diamond:
+  T (cx,      cy)
+  R (cx + hw, cy + hh)
+  B (cx,      cy + 2*hh)
+  L (cx - hw, cy + hh)
+
+Bottom 3: drop B, R, L straight down by cube_h -> B', R', L'
+
+Visible faces (only 3 - we never see back/bottom/far from the fixed iso cam):
+  TOP   = T, R, B, L
+  LEFT  = L, B, B', L'
+  RIGHT = R, B, B', R'
+
+Faces -> triangles: each 4-corner face is 2 triangles,
+so top = (T,R,B) + (T,B,L)
+One cub has 3 faces * 2 = 6 triangles which gives us 18 vertices.

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 
+#include "game/cube.h"
 #include "game/iso_plane.h"
 #include "game/player.h"
 
@@ -11,6 +12,22 @@ const int WINDOW_HEIGHT = 720;
 
 const int TARGET_FPS = 144;
 const int FRAME_DELAY_MS = 1000 / TARGET_FPS;
+
+constexpr int map_width = 10;
+constexpr int map_height = 10;
+
+int world[map_height][map_width] = {
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+};
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -74,11 +91,8 @@ int main(int argc, char *argv[]) {
     };
     Uint32 last_tick = SDL_GetTicks();
 
-    std::vector<SDL_Rect> walls{
-        {500, 250, 100, 250},
-        {200, 150, 300, 50},
-        {800, 400, 50, 200}
-    };
+    std::vector<SDL_Rect> walls{};
+    Camera camera;
 
     bool running = true;
     SDL_Event event;
@@ -102,17 +116,41 @@ int main(int argc, char *argv[]) {
         SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
         SDL_RenderClear(renderer);
 
-        render_iso_plane(renderer, deep_rock_texture, WINDOW_WIDTH);
+        if (keys[SDL_SCANCODE_UP])
+            camera.y -= 300.0f * delta_time;
+
+        if (keys[SDL_SCANCODE_DOWN])
+            camera.y += 300.0f * delta_time;
+
+        if (keys[SDL_SCANCODE_LEFT])
+            camera.x -= 300.0f * delta_time;
+
+        if (keys[SDL_SCANCODE_RIGHT])
+            camera.x += 300.0f * delta_time;
+
+        for (int y{}; y < map_width; y++) {
+            for (int x{}; x < map_height; x++) {
+                if (world[y][x] == 0)
+                    continue;
+
+                SDL_Color rock{120, 120, 120, 255};
+                render_cube(
+                    renderer,
+                    camera,
+                    x,
+                    y,
+                    0,
+                    rock,
+                    WINDOW_WIDTH
+                );
+            }
+        }
 
         move_player(player, keys, delta_time, walls);
         clamp_player_to_window(player, WINDOW_WIDTH, WINDOW_HEIGHT);
         update_player_rect(player);
 
         render_player(renderer, player);
-        SDL_SetRenderDrawColor(renderer, 180, 80, 80, 255);
-        for (const SDL_Rect &wall : walls) {
-            SDL_RenderFillRect(renderer, &wall);
-        }
 
         SDL_RenderPresent(renderer);
 

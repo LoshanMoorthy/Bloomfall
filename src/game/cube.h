@@ -4,12 +4,12 @@
 
 #include "camera.h"
 
-void render_iso_plane(
+void render_cube(
     SDL_Renderer *renderer,
-    SDL_Texture *texture,
     const Camera &camera,
-    int world[][10],
-    int map_width,
-    int map_height,
+    int world_x,
+    int world_y,
+    int z,
+    SDL_Color base,
     int window_width
 );
