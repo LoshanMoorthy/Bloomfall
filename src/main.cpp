@@ -1,10 +1,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <algorithm>
 #include <iostream>
 #include <vector>
 
 #include "game/cube.h"
-#include "game/iso_plane.h"
 #include "game/player.h"
 
 const int WINDOW_WIDTH = 1280;
@@ -27,6 +27,24 @@ int world[map_height][map_width] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+};
+
+int height_map[map_height][map_width] = {
+    {1, 1, 1, 4, 1, 1, 1, 1, 1, 1},
+    {1, 2, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 8, 1, 1, 1, 1},
+    {1, 1, 1, 1, 6, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 3, 1, 1, 1, 1, 1},
+    {1, 1, 1, 2, 5, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 3, 3, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 3, 1}
+};
+
+struct DrawCube {
+    int x, y, z;
+    SDL_Color color;
 };
 
 int main(int argc, char *argv[]) {
@@ -128,23 +146,25 @@ int main(int argc, char *argv[]) {
         if (keys[SDL_SCANCODE_RIGHT])
             camera.x += 300.0f * delta_time;
 
-        for (int y{}; y < map_width; y++) {
-            for (int x{}; x < map_height; x++) {
-                if (world[y][x] == 0)
-                    continue;
-
-                SDL_Color rock{120, 120, 120, 255};
-                render_cube(
-                    renderer,
-                    camera,
-                    x,
-                    y,
-                    0,
-                    rock,
-                    WINDOW_WIDTH
-                );
+        std::vector<DrawCube> cubes;
+        for (int y{}; y < map_height; y++) {
+            for (int x{}; x < map_width; x++) {
+                int h = height_map[y][x];
+                for (int z{}; z < h; z++) {
+                    cubes.push_back({x, y, z, SDL_Color{120, 120, 120, 155}});
+                }
             }
         }
+
+        std::sort(cubes.begin(), cubes.end(), [](const DrawCube &a, const DrawCube &b) {
+            if (a.x + a.y != b.x + b.y)
+                return (a.x + a.y) < (b.x + b.y);
+            return a.z < b.z;
+        });
+
+        for (const DrawCube &c : cubes) {
+            render_cube(renderer, camera, c.x, c.y, c.z, c.color, WINDOW_WIDTH);
+        };
 
         move_player(player, keys, delta_time, walls);
         clamp_player_to_window(player, WINDOW_WIDTH, WINDOW_HEIGHT);

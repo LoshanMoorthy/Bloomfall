@@ -56,8 +56,8 @@ Coordinate System
 ----------------
 (0,0)
 
-X increases -> right
-Y increases -> down
+world+X increases -> down-right
+world+Y increases -> down-left
 
 AABB Collision
 ----------------
