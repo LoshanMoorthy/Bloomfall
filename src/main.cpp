@@ -1,11 +1,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <algorithm>
+#include <glad/glad.h>
 #include <iostream>
 #include <vector>
 
-#include "game/cube.h"
 #include "game/player.h"
+#include "graphics/shader.h"
 
 const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 720;
@@ -32,18 +32,21 @@ int world[map_height][map_width] = {
 int height_map[map_height][map_width] = {
     {1, 1, 1, 4, 1, 1, 1, 1, 1, 1},
     {1, 2, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 8, 1, 1, 1, 1},
-    {1, 1, 1, 1, 6, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 2, 1, 1, 1, 1},
+    {1, 1, 1, 1, 2, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 3, 1, 1, 1, 1, 1},
-    {1, 1, 1, 2, 5, 1, 1, 1, 1, 1},
+    {1, 1, 1, 2, 3, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 3, 3, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 3, 1}
 };
 
+enum class DrawKind { Cube,
+                      Player };
 struct DrawCube {
-    int x, y, z;
+    DrawKind kind;
+    float x, y, z;
     SDL_Color color;
 };
 
@@ -53,10 +56,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-        std::cout << "IMG_Init failed: " << IMG_GetError() << "\n";
-        return 1;
-    }
+    // requesting OpenGL
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     SDL_Window *window = SDL_CreateWindow(
         "Bloomfall",
@@ -64,7 +67,7 @@ int main(int argc, char *argv[]) {
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN
+        SDL_WINDOW_OPENGL
     );
 
     if (window == nullptr) {
@@ -73,6 +76,65 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Create GL context
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context) {
+        std::cout << "GL context failed: " << SDL_GetError() << "\n";
+        SDL_Quit();
+        return 1;
+    }
+
+    // Load all OpenGL functions via SDL
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+        std::cout << "glad load failed\n";
+        SDL_Quit();
+        return 1;
+    }
+
+    GLuint shader_program = create_shader_program(
+        "D:/c_projects/Bloomfall/res/shaders/basic.vert",
+        "D:/c_projects/Bloomfall/res/shaders/basic.frag"
+    );
+    if (shader_program == 0) {
+        std::cout << "Failed to create shader program\n";
+    }
+    std::cout << "Shader program created: " << shader_program << "\n";
+
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
+
+    float vertices[] = {
+        -0.5f,
+        -0.5f,
+        0.0f, // bl
+        0.5f,
+        -0.5f,
+        0.0f, // br
+        0.0f,
+        0.5f,
+        0.0f // t
+    };
+
+    GLuint vao, vbo;
+
+    // VAO
+    glGenVertexArrays(1, &vao);
+    // VBO (the gpu mem)
+    glGenBuffers(1, &vbo);
+
+    // record into VAO
+    glBindVertexArray(vao);
+
+    // activate the vbo
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    // upload data
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+
+    /* ---- old SDL rendering disabled ----
     SDL_Renderer *renderer = SDL_CreateRenderer(
         window,
         -1,
@@ -99,14 +161,12 @@ int main(int argc, char *argv[]) {
                   << SDL_GetError() << "\n";
         return 1;
     }
+    */
 
     Player player;
-    player.rect = {
-        static_cast<int>(player.x),
-        static_cast<int>(player.y),
-        player.size,
-        player.size
-    };
+    player.x = 5.0f;
+    player.y = 5.0f;
+
     Uint32 last_tick = SDL_GetTicks();
 
     std::vector<SDL_Rect> walls{};
@@ -131,8 +191,14 @@ int main(int argc, char *argv[]) {
 
         const Uint8 *keys = SDL_GetKeyboardState(nullptr);
 
-        SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
-        SDL_RenderClear(renderer);
+        // note: colors are 0.0-1,0, not 0-255
+        glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+        glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shader_program);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         if (keys[SDL_SCANCODE_UP])
             camera.y -= 300.0f * delta_time;
@@ -146,15 +212,30 @@ int main(int argc, char *argv[]) {
         if (keys[SDL_SCANCODE_RIGHT])
             camera.x += 300.0f * delta_time;
 
+        /* ---- old SDL draw loop disabled ----
         std::vector<DrawCube> cubes;
         for (int y{}; y < map_height; y++) {
             for (int x{}; x < map_width; x++) {
                 int h = height_map[y][x];
                 for (int z{}; z < h; z++) {
-                    cubes.push_back({x, y, z, SDL_Color{120, 120, 120, 155}});
+                    cubes.push_back(
+                        {DrawKind::Cube,
+                         (float)x,
+                         (float)y,
+                         (float)z,
+                         SDL_Color{120, 120, 120, 155}}
+                    );
                 }
             }
         }
+
+        cubes.push_back(
+            {DrawKind::Player,
+             player.x,
+             player.y,
+             0.0f,
+             SDL_Color{220, 120, 60, 22}}
+        );
 
         std::sort(cubes.begin(), cubes.end(), [](const DrawCube &a, const DrawCube &b) {
             if (a.x + a.y != b.x + b.y)
@@ -163,25 +244,33 @@ int main(int argc, char *argv[]) {
         });
 
         for (const DrawCube &c : cubes) {
-            render_cube(renderer, camera, c.x, c.y, c.z, c.color, WINDOW_WIDTH);
+            if (c.kind == DrawKind::Cube)
+                render_cube(renderer, camera, c.x, c.y, c.z, c.color, WINDOW_WIDTH);
+            else
+                render_player(renderer, camera, c.x, c.y, 0.0f, c.color, WINDOW_WIDTH);
         };
+        */
 
-        move_player(player, keys, delta_time, walls);
-        clamp_player_to_window(player, WINDOW_WIDTH, WINDOW_HEIGHT);
-        update_player_rect(player);
+        move_player(player, keys, delta_time);
 
-        render_player(renderer, player);
+        if (player.x < 0.0f)
+            player.x = 0.0f;
+        if (player.x > map_width - 1)
+            player.x = map_width - 1;
+        if (player.y < 0.0f)
+            player.y = 0.0f;
+        if (player.y > map_height - 1)
+            player.y = map_height - 1;
 
-        SDL_RenderPresent(renderer);
+        SDL_GL_SwapWindow(window);
 
         Uint32 frame_time = SDL_GetTicks() - frame_start;
-
         if (frame_time < FRAME_DELAY_MS) {
             SDL_Delay(FRAME_DELAY_MS - frame_time);
         }
     }
 
-    SDL_DestroyRenderer(renderer);
+    SDL_GL_DeleteContext(gl_context);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
