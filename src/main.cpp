@@ -103,15 +103,13 @@ int main(int argc, char *argv[]) {
     std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
 
     float vertices[] = {
-        -0.5f,
-        -0.5f,
-        0.0f, // bl
-        0.5f,
-        -0.5f,
-        0.0f, // br
-        0.0f,
-        0.5f,
-        0.0f // t
+        // pos                // UV
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, // bl
+         0.5f, -0.5f, 0.0f,   1.0f, 0.0f, // br
+         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, // tr
+        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, // bl
+         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, // tr
+        -0.5f,  0.5f, 0.0f,   0.0f, 1.0f, // tl
     };
 
     GLuint vao, vbo;
@@ -129,10 +127,38 @@ int main(int argc, char *argv[]) {
     // upload data
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    glVertexAttribPointer
+        (1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
     glBindVertexArray(0);
+
+    SDL_Surface *surface =
+        IMG_Load("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
+    if (!surface) {
+        std::cout << "IMG_Load failed: " << IMG_GetError() << "\n";
+        return 1;
+    }
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // wrapping + filtering
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // upload the pixels
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0,
+        GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    SDL_FreeSurface(surface);
 
     /* ---- old SDL rendering disabled ----
     SDL_Renderer *renderer = SDL_CreateRenderer(
@@ -197,8 +223,11 @@ int main(int argc, char *argv[]) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shader_program);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glUniform1i(glGetUniformLocation(shader_program, "uTexture"), 0);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         if (keys[SDL_SCANCODE_UP])
             camera.y -= 300.0f * delta_time;
