@@ -1,54 +1,20 @@
+#include <glad/glad.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-#include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
-#include <vector>
 
 #include "game/player.h"
 #include "graphics/shader.h"
+#include "graphics/mesh.h"
+#include "graphics/texture.h"
 
 const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 720;
-
 const int TARGET_FPS = 144;
 const int FRAME_DELAY_MS = 1000 / TARGET_FPS;
-
-constexpr int map_width = 10;
-constexpr int map_height = 10;
-
-int world[map_height][map_width] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-};
-
-int height_map[map_height][map_width] = {
-    {1, 1, 1, 4, 1, 1, 1, 1, 1, 1},
-    {1, 2, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 2, 1, 1, 1, 1},
-    {1, 1, 1, 1, 2, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 3, 1, 1, 1, 1, 1},
-    {1, 1, 1, 2, 3, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 3, 3, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 3, 1}
-};
-
-enum class DrawKind { Cube,
-                      Player };
-struct DrawCube {
-    DrawKind kind;
-    float x, y, z;
-    SDL_Color color;
-};
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -90,6 +56,9 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return 1;
     }
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
+
+    glEnable(GL_DEPTH_TEST);
 
     GLuint shader_program = create_shader_program(
         "D:/c_projects/Bloomfall/res/shaders/basic.vert",
@@ -97,107 +66,45 @@ int main(int argc, char *argv[]) {
     );
     if (shader_program == 0) {
         std::cout << "Failed to create shader program\n";
+        return 1;
     }
-    std::cout << "Shader program created: " << shader_program << "\n";
-
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
 
     float vertices[] = {
-        // pos                // UV
-        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, // bl
-         0.5f, -0.5f, 0.0f,   1.0f, 0.0f, // br
-         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, // tr
-        -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, // bl
-         0.5f,  0.5f, 0.0f,   1.0f, 1.0f, // tr
-        -0.5f,  0.5f, 0.0f,   0.0f, 1.0f, // tl
+        // back face
+        -0.5f,-0.5f,-0.5f, 0,0,  0.5f,-0.5f,-0.5f, 1,0,  0.5f, 0.5f,-0.5f, 1,1,
+         0.5f, 0.5f,-0.5f, 1,1, -0.5f, 0.5f,-0.5f, 0,1, -0.5f,-0.5f,-0.5f, 0,0,
+        // front face
+        -0.5f,-0.5f, 0.5f, 0,0,  0.5f,-0.5f, 0.5f, 1,0,  0.5f, 0.5f, 0.5f, 1,1,
+         0.5f, 0.5f, 0.5f, 1,1, -0.5f, 0.5f, 0.5f, 0,1, -0.5f,-0.5f, 0.5f, 0,0,
+        // left face
+        -0.5f, 0.5f, 0.5f, 1,0, -0.5f, 0.5f,-0.5f, 1,1, -0.5f,-0.5f,-0.5f, 0,1,
+        -0.5f,-0.5f,-0.5f, 0,1, -0.5f,-0.5f, 0.5f, 0,0, -0.5f, 0.5f, 0.5f, 1,0,
+        // right face
+         0.5f, 0.5f, 0.5f, 1,0,  0.5f, 0.5f,-0.5f, 1,1,  0.5f,-0.5f,-0.5f, 0,1,
+         0.5f,-0.5f,-0.5f, 0,1,  0.5f,-0.5f, 0.5f, 0,0,  0.5f, 0.5f, 0.5f, 1,0,
+        // bottom face
+        -0.5f,-0.5f,-0.5f, 0,1,  0.5f,-0.5f,-0.5f, 1,1,  0.5f,-0.5f, 0.5f, 1,0,
+         0.5f,-0.5f, 0.5f, 1,0, -0.5f,-0.5f, 0.5f, 0,0, -0.5f,-0.5f,-0.5f, 0,1,
+        // top face
+        -0.5f, 0.5f,-0.5f, 0,1,  0.5f, 0.5f,-0.5f, 1,1,  0.5f, 0.5f, 0.5f, 1,0,
+         0.5f, 0.5f, 0.5f, 1,0, -0.5f, 0.5f, 0.5f, 0,0, -0.5f, 0.5f,-0.5f, 0,1,
     };
 
-    GLuint vao, vbo;
+    Mesh quad = create_mesh(vertices, sizeof(vertices) / sizeof(float));
 
-    // VAO
-    glGenVertexArrays(1, &vao);
-    // VBO (the gpu mem)
-    glGenBuffers(1, &vbo);
+    GLuint texture = load_texture("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
+    if (texture == 0) return 1;
 
-    // record into VAO
-    glBindVertexArray(vao);
-
-    // activate the vbo
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    // upload data
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer
-        (1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glBindVertexArray(0);
-
-    SDL_Surface *surface =
-        IMG_Load("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
-    if (!surface) {
-        std::cout << "IMG_Load failed: " << IMG_GetError() << "\n";
-        return 1;
-    }
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    // wrapping + filtering
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    // upload the pixels
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surface->w, surface->h, 0,
-        GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    SDL_FreeSurface(surface);
-
-    /* ---- old SDL rendering disabled ----
-    SDL_Renderer *renderer = SDL_CreateRenderer(
-        window,
-        -1,
-        SDL_RENDERER_ACCELERATED
-    );
-
-    SDL_Texture *deep_rock_texture = nullptr;
-
-    SDL_Surface *surface =
-        IMG_Load("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
-
-    if (surface == nullptr) {
-        std::cout << "IMG_Load failed: " << IMG_GetError() << "\n";
-        return 1;
-    }
-
-    deep_rock_texture =
-        SDL_CreateTextureFromSurface(renderer, surface);
-
-    SDL_FreeSurface(surface);
-
-    if (deep_rock_texture == nullptr) {
-        std::cout << "SDL_CreateTextureFromSurface failed: "
-                  << SDL_GetError() << "\n";
-        return 1;
-    }
-    */
+    glm::mat4 projection =
+        glm::perspective(glm::radians(45.0f),
+        (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
+        0.1f, 100.0f);
 
     Player player;
     player.x = 5.0f;
     player.y = 5.0f;
 
     Uint32 last_tick = SDL_GetTicks();
-
-    std::vector<SDL_Rect> walls{};
-    Camera camera;
-
     bool running = true;
     SDL_Event event;
 
@@ -209,9 +116,9 @@ int main(int argc, char *argv[]) {
                 running = false;
             }
         }
+
         Uint32 current_tick = SDL_GetTicks();
-        Uint32 delta_ms = current_tick - last_tick;
-        float delta_time = delta_ms / 1000.0f;
+        Uint32 delta_time = (current_tick - last_tick) / 1000.0f;
 
         last_tick = current_tick;
 
@@ -220,76 +127,31 @@ int main(int argc, char *argv[]) {
         // note: colors are 0.0-1,0, not 0-255
         glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
         glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shader_program);
+
+        glm::mat4 view =
+            glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
+
+        float t = SDL_GetTicks() / 1000.0f;
+        glm::mat4 model =
+            glm::rotate(glm::mat4(1.0f), t, glm::vec3(0.5, 1.0f, 0.0f));
+
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uModel"),
+                           1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uView"),
+                           1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uProjection"),
+                           1, GL_FALSE, glm::value_ptr(projection));
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(glGetUniformLocation(shader_program, "uTexture"), 0);
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        if (keys[SDL_SCANCODE_UP])
-            camera.y -= 300.0f * delta_time;
-
-        if (keys[SDL_SCANCODE_DOWN])
-            camera.y += 300.0f * delta_time;
-
-        if (keys[SDL_SCANCODE_LEFT])
-            camera.x -= 300.0f * delta_time;
-
-        if (keys[SDL_SCANCODE_RIGHT])
-            camera.x += 300.0f * delta_time;
-
-        /* ---- old SDL draw loop disabled ----
-        std::vector<DrawCube> cubes;
-        for (int y{}; y < map_height; y++) {
-            for (int x{}; x < map_width; x++) {
-                int h = height_map[y][x];
-                for (int z{}; z < h; z++) {
-                    cubes.push_back(
-                        {DrawKind::Cube,
-                         (float)x,
-                         (float)y,
-                         (float)z,
-                         SDL_Color{120, 120, 120, 155}}
-                    );
-                }
-            }
-        }
-
-        cubes.push_back(
-            {DrawKind::Player,
-             player.x,
-             player.y,
-             0.0f,
-             SDL_Color{220, 120, 60, 22}}
-        );
-
-        std::sort(cubes.begin(), cubes.end(), [](const DrawCube &a, const DrawCube &b) {
-            if (a.x + a.y != b.x + b.y)
-                return (a.x + a.y) < (b.x + b.y);
-            return a.z < b.z;
-        });
-
-        for (const DrawCube &c : cubes) {
-            if (c.kind == DrawKind::Cube)
-                render_cube(renderer, camera, c.x, c.y, c.z, c.color, WINDOW_WIDTH);
-            else
-                render_player(renderer, camera, c.x, c.y, 0.0f, c.color, WINDOW_WIDTH);
-        };
-        */
+        draw_mesh(quad);
 
         move_player(player, keys, delta_time);
-
-        if (player.x < 0.0f)
-            player.x = 0.0f;
-        if (player.x > map_width - 1)
-            player.x = map_width - 1;
-        if (player.y < 0.0f)
-            player.y = 0.0f;
-        if (player.y > map_height - 1)
-            player.y = map_height - 1;
 
         SDL_GL_SwapWindow(window);
 

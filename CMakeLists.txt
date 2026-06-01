@@ -9,6 +9,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
 find_package(glad CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 file(GLOB_RECURSE BLOOMFALL_SOURCES CONFIGURE_DEPENDS
     src/core/*.cpp
@@ -31,6 +32,7 @@ target_link_libraries(Bloomfall
         SDL2::SDL2main
         SDL2_image::SDL2_image
         glad::glad
+        glm::glm
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
