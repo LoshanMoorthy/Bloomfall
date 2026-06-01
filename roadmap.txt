@@ -13,12 +13,12 @@ Bloomfall roadmap + notes for myself
 NEXT
 ----
 
-[ ] Tilemap rendering
+[X] Tilemap rendering
     - find and load a tileset PNG
     - render tile grid
     - learn source rectangles
 
-[ ] Tile collision
+[X] Tile collision
     - wall tiles
     - collision map
     - iterate tile grid
@@ -28,7 +28,7 @@ NEXT
     - follow player
     - world vs screen coordinates?
 
-[ ] Sprite rendering
+[X] Sprite rendering
     - SDL_Texture
     - SDL_RenderCopy
     - sprite sheets
@@ -139,3 +139,34 @@ Visible faces (only 3 - we never see back/bottom/far from the fixed iso cam):
 Faces -> triangles: each 4-corner face is 2 triangles,
 so top = (T,R,B) + (T,B,L)
 One cub has 3 faces * 2 = 6 triangles which gives us 18 vertices.
+
+Depth sorting
+----------------
+With height, a cube can sit in front of a taller cube behind it.
+So we draw back-to-front or the back ones paints over the front.
+Rule: smaller (x + y) = further back = draw first.
+To do that we collect all drawables into a list, sort by (x+y, then z), draw.
+PLayer is just another item in that list which sorts into the world
+automatically (walk behind a tower = hidde, in front = covers it).
+A manual version of the GPUs depth buffer.
+
+Texture / UV mapping (the 2 squares model)
+----------------
+A texture is wrapped onto geometry by pairing each vertex to a
+spot on the image. So we think 2 separate squares:
+
+    pos space: center = 0, edges -0,5 .. +0.5
+    UV space:  corner = 0, edges 0    .. 1
+
+Same corner, different rules. bl = (-0.5,-0.5) in pos, (0,0) in UV.
+Each vert = a string linking a pos-point to a UV-point.
+GPU interpolates UVs across the triangle, fragment shader samples
+the image at each pixels UV. (sampling = texture(uTex, vUV))
+
+Vertex layout: each row = one corner. columns = attributes.
+count per attribute.
+    pos = 3 (x,y,z, 3D space)
+    UV  = 2 (u,v,   2D img)
+VAO receipe (glVertexAttribPointer) must match: 3 for pos, 2 for UV.
+
+
