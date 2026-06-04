@@ -1,3 +1,4 @@
+#include <glm/gtc/type_ptr.hpp>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -36,35 +37,50 @@ static GLuint compile_shader(GLenum type, const std::string &source, const char 
     return shader;
 }
 
-GLuint create_shader_program(const char *vertex_path, const char *fragment_path) {
+bool Shader::load(const char *vertex_path, const char *fragment_path) {
     std::string vertex_src = read_file(vertex_path);
     std::string fragment_src = read_file(fragment_path);
     if (vertex_src.empty() || fragment_src.empty())
-        return 0;
+        return false;
 
     GLuint vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_src, "vertex");
     GLuint fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_src, "fragment");
     if (vertex_shader == 0 || fragment_shader == 0)
-        return 0;
+        return false;
 
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
+    id = glCreateProgram();
+    glAttachShader(id, vertex_shader);
+    glAttachShader(id, fragment_shader);
+    glLinkProgram(id);
 
     GLint ok = 0;
-    glGetProgramiv(program, GL_LINK_STATUS, &ok);
+    glGetProgramiv(id, GL_LINK_STATUS, &ok);
     if (!ok) {
         char log[512];
-        glGetProgramInfoLog(program, 512, nullptr, log);
+        glGetProgramInfoLog(id, 512, nullptr, log);
         std::cout << "Shader link failed:\n"
                   << log << "\n";
-        glDeleteProgram(program);
-        return 0;
+        glDeleteProgram(id);
+        return false;
     }
 
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
+    return true;
+}
 
-    return program;
+void Shader::use() const { glUseProgram(id); }
+
+void Shader::set_int(const char *name, int value) const {
+    glUniform1i(glGetUniformLocation(id, name), value);
+}
+
+void Shader::set_mat4(const char *name, const glm::mat4 &value) const {
+    glUniformMatrix4fv(glGetUniformLocation(id, name),
+                       1, GL_FALSE, glm::value_ptr(value));
+}
+
+void Shader::destroy() {
+    if (id) glDeleteProgram(id);
+    id = 0;
 }

@@ -6,10 +6,14 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-#include "game/player.h"
-#include "graphics/shader.h"
-#include "graphics/mesh.h"
-#include "graphics/texture.h"
+#include "engine/shader.h"
+#include "engine/mesh.h"
+#include "engine/texture.h"
+#include "engine/camera.h"
+#include "engine/window.h"
+#include "engine/cube_mesh.h"
+
+#include "game/world.h"
 
 const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 720;
@@ -17,92 +21,32 @@ const int TARGET_FPS = 144;
 const int FRAME_DELAY_MS = 1000 / TARGET_FPS;
 
 int main(int argc, char *argv[]) {
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cout << "SDL_init failed: " << SDL_GetError() << "\n";
+    Window window;
+    if (!window.create("Bloomfall", WINDOW_WIDTH, WINDOW_HEIGHT)) {
         return 1;
     }
 
-    // requesting OpenGL
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    SDL_Window *window = SDL_CreateWindow(
-        "Bloomfall",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
-        SDL_WINDOW_OPENGL
-    );
-
-    if (window == nullptr) {
-        std::cout << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
-        SDL_Quit();
-        return 1;
-    }
-
-    // Create GL context
-    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
-    if (!gl_context) {
-        std::cout << "GL context failed: " << SDL_GetError() << "\n";
-        SDL_Quit();
-        return 1;
-    }
-
-    // Load all OpenGL functions via SDL
-    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
-        std::cout << "glad load failed\n";
-        SDL_Quit();
-        return 1;
-    }
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
+    IMG_Init(IMG_INIT_PNG);
 
     glEnable(GL_DEPTH_TEST);
 
-    GLuint shader_program = create_shader_program(
-        "D:/c_projects/Bloomfall/res/shaders/basic.vert",
-        "D:/c_projects/Bloomfall/res/shaders/basic.frag"
-    );
-    if (shader_program == 0) {
-        std::cout << "Failed to create shader program\n";
+    Shader shader;
+    if (!shader.load("D:/c_projects/Bloomfall/res/shaders/basic.vert",
+                 "D:/c_projects/Bloomfall/res/shaders/basic.frag")) {
+        std::cout << "Failed to create shader\n";
         return 1;
     }
 
-    float vertices[] = {
-        // back face
-        -0.5f,-0.5f,-0.5f, 0,0,  0.5f,-0.5f,-0.5f, 1,0,  0.5f, 0.5f,-0.5f, 1,1,
-         0.5f, 0.5f,-0.5f, 1,1, -0.5f, 0.5f,-0.5f, 0,1, -0.5f,-0.5f,-0.5f, 0,0,
-        // front face
-        -0.5f,-0.5f, 0.5f, 0,0,  0.5f,-0.5f, 0.5f, 1,0,  0.5f, 0.5f, 0.5f, 1,1,
-         0.5f, 0.5f, 0.5f, 1,1, -0.5f, 0.5f, 0.5f, 0,1, -0.5f,-0.5f, 0.5f, 0,0,
-        // left face
-        -0.5f, 0.5f, 0.5f, 1,0, -0.5f, 0.5f,-0.5f, 1,1, -0.5f,-0.5f,-0.5f, 0,1,
-        -0.5f,-0.5f,-0.5f, 0,1, -0.5f,-0.5f, 0.5f, 0,0, -0.5f, 0.5f, 0.5f, 1,0,
-        // right face
-         0.5f, 0.5f, 0.5f, 1,0,  0.5f, 0.5f,-0.5f, 1,1,  0.5f,-0.5f,-0.5f, 0,1,
-         0.5f,-0.5f,-0.5f, 0,1,  0.5f,-0.5f, 0.5f, 0,0,  0.5f, 0.5f, 0.5f, 1,0,
-        // bottom face
-        -0.5f,-0.5f,-0.5f, 0,1,  0.5f,-0.5f,-0.5f, 1,1,  0.5f,-0.5f, 0.5f, 1,0,
-         0.5f,-0.5f, 0.5f, 1,0, -0.5f,-0.5f, 0.5f, 0,0, -0.5f,-0.5f,-0.5f, 0,1,
-        // top face
-        -0.5f, 0.5f,-0.5f, 0,1,  0.5f, 0.5f,-0.5f, 1,1,  0.5f, 0.5f, 0.5f, 1,0,
-         0.5f, 0.5f, 0.5f, 1,0, -0.5f, 0.5f, 0.5f, 0,0, -0.5f, 0.5f,-0.5f, 0,1,
-    };
-
-    Mesh quad = create_mesh(vertices, sizeof(vertices) / sizeof(float));
+    Mesh cube = create_cube_mesh();
+    World world;
 
     GLuint texture = load_texture("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
     if (texture == 0) return 1;
 
-    glm::mat4 projection =
-        glm::perspective(glm::radians(45.0f),
-        (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
-        0.1f, 100.0f);
-
-    Player player;
-    player.x = 5.0f;
-    player.y = 5.0f;
+    Camera camera;
+    camera.position = glm::vec3(5.0f, 0.0f, 5.0f);
+    camera.aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    camera.ortho_size = 7.0f; // smaller = more zoomed
 
     Uint32 last_tick = SDL_GetTicks();
     bool running = true;
@@ -118,7 +62,7 @@ int main(int argc, char *argv[]) {
         }
 
         Uint32 current_tick = SDL_GetTicks();
-        Uint32 delta_time = (current_tick - last_tick) / 1000.0f;
+        float delta_time = (current_tick - last_tick) / 1000.0f;
 
         last_tick = current_tick;
 
@@ -129,31 +73,34 @@ int main(int argc, char *argv[]) {
         glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUseProgram(shader_program);
-
-        glm::mat4 view =
-            glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -3.0f));
+        glm::mat4 view = camera.view();
+        glm::mat4 projection = camera.projection();
 
         float t = SDL_GetTicks() / 1000.0f;
-        glm::mat4 model =
-            glm::rotate(glm::mat4(1.0f), t, glm::vec3(0.5, 1.0f, 0.0f));
 
-        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uModel"),
-                           1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uView"),
-                           1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(shader_program, "uProjection"),
-                           1, GL_FALSE, glm::value_ptr(projection));
+        shader.use();
+        shader.set_mat4("uView", view);
+        shader.set_mat4("uProjection", projection);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
-        glUniform1i(glGetUniformLocation(shader_program, "uTexture"), 0);
+        shader.set_int("uTexture", 0);
 
-        draw_mesh(quad);
+        for (int y = 0; y < MAP_HEIGHT; y++) {
+            for (int x = 0; x < MAP_WIDTH; x++) {
+                int h = world.height_at(x, y);
+                for (int z = 0; z < h; z++) {
+                    glm::mat4 model =
+                        glm::translate(
+                            glm::mat4(1.0f),
+                            glm::vec3((float)x, (float)z, (float)y));
+                    shader.set_mat4("uModel", model);
+                    draw_mesh(cube);
+                }
+            }
+        }
 
-        move_player(player, keys, delta_time);
-
-        SDL_GL_SwapWindow(window);
+        window.swap();
 
         Uint32 frame_time = SDL_GetTicks() - frame_start;
         if (frame_time < FRAME_DELAY_MS) {
@@ -161,9 +108,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    SDL_GL_DeleteContext(gl_context);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    shader.destroy();
+    window.destroy();
 
     return 0;
 }

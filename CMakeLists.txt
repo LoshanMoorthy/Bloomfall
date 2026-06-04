@@ -12,9 +12,8 @@ find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 file(GLOB_RECURSE BLOOMFALL_SOURCES CONFIGURE_DEPENDS
-    src/core/*.cpp
     src/game/*.cpp
-    src/graphics/*.cpp
+    src/engine/*.cpp
     src/main.cpp
 )
 
