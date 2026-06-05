@@ -1,4 +1,5 @@
 #include "texture.h"
+#include "log.h"
 
 #include <SDL2/SDL_image.h>
 #include <iostream>
@@ -8,6 +9,7 @@ GLuint load_texture(const char *path) {
         IMG_Load(path);
     if (!surface) {
         std::cout << "IMG_Load failed: " << IMG_GetError() << "\n";
+        ERROR("IMG_Load failed: {}", IMG_GetError());
         return 1;
     }
 

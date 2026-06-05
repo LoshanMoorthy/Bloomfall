@@ -1,13 +1,12 @@
-#include <iostream>
-
 #include "window.h"
+#include "log.h"
 
 bool Window::create(const char *title, int w, int h) {
     width = w;
     height = h;
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cout << "SDL_init failed: " << SDL_GetError() << "\n";
+        ERROR("SDL_init failed: {}", SDL_GetError());
         return false;
     }
 
@@ -20,28 +19,28 @@ bool Window::create(const char *title, int w, int h) {
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         w, h, SDL_WINDOW_OPENGL);
     if (!handle) {
-        std::cout << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
+        ERROR("SDL_CreateWindow failed: {}", SDL_GetError());
         SDL_Quit();
         return false;
     }
 
     gl_context = SDL_GL_CreateContext(handle);
     if (!gl_context) {
-        std::cout << "GL context failed: " << SDL_GetError() << "\n";
+        ERROR("GL_CreateContext failed: {}", SDL_GetError());
         SDL_DestroyWindow(handle);
         SDL_Quit();
         return false;
     }
 
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
-        std::cout << "glad load failed\n";
+        ERROR("GLAD load failed");
         SDL_GL_DeleteContext(gl_context);
         SDL_DestroyWindow(handle);
         SDL_Quit();
         return false;
     }
 
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << "\n";
+    LOG("OpenGL version: {}", (const char*)glGetString(GL_VERSION));
     return true;
 }
 

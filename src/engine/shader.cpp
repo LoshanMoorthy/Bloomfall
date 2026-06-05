@@ -4,12 +4,13 @@
 #include <sstream>
 
 #include "shader.h"
+#include "log.h"
 
 // Read an entire text file into a string.
 static std::string read_file(const char *path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        std::cout << "Failed to open shader file: " << path << "\n";
+        ERROR("Failed to open shader faile: {}", path);
         return "";
     }
     std::stringstream ss;
@@ -29,8 +30,7 @@ static GLuint compile_shader(GLenum type, const std::string &source, const char 
     if (!ok) {
         char log[512];
         glGetShaderInfoLog(shader, 512, nullptr, log);
-        std::cout << "Shader compile failed (" << label << "):\n"
-                  << log << "\n";
+        ERROR("Sader compile failed ({}): {}", label, log);
         glDeleteShader(shader);
         return 0;
     }
@@ -58,8 +58,7 @@ bool Shader::load(const char *vertex_path, const char *fragment_path) {
     if (!ok) {
         char log[512];
         glGetProgramInfoLog(id, 512, nullptr, log);
-        std::cout << "Shader link failed:\n"
-                  << log << "\n";
+        ERROR("Shader link failed: {}", log);
         glDeleteProgram(id);
         return false;
     }
@@ -78,6 +77,14 @@ void Shader::set_int(const char *name, int value) const {
 void Shader::set_mat4(const char *name, const glm::mat4 &value) const {
     glUniformMatrix4fv(glGetUniformLocation(id, name),
                        1, GL_FALSE, glm::value_ptr(value));
+}
+
+void Shader::set_vec3(const char *name, const glm::vec3 &value) const {
+    glUniform3fv(glGetUniformLocation(id, name), 1, glm::value_ptr(value));
+}
+
+void Shader::set_vec2(const char *name, const glm::vec2 &value) const {
+    glUniform2fv(glGetUniformLocation(id, name), 1, glm::value_ptr(value));
 }
 
 void Shader::destroy() {

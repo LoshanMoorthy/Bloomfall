@@ -1,53 +1,56 @@
 Bloomfall roadmap + notes for myself
 ----------------------------
+DONE (SDL era)
+----
+[X] Tilemap rendering (flat iso)
+[X] Tile collision (AABB)
+[X] Sprite rendering
+[X] Isometric tile + cube rendering (2D fake-3D)
+[X] Height map + depth sorting
 
-[X] SDL window + renderer
-[X] Game loop
-[X] Delta time
-[X] Player movement
-[X] Window bounds collision
-[X] AABB wall collision
-[X] Multiple walls
-[X] Code cleanup
+DONE (OpenGL era)
+----
+[X] SDL -> OpenGL (context, GLAD)
+[X] Shaders (compile/link from files, vertex->fragment)
+[X] VBO / VAO + first triangle
+[X] Textures (UV mapping, sampler)
+[X] MVP matrices (model/view/projection via GLM)
+[X] 3D cube + depth buffer
+[X] Orthographic dimetric camera (real-3D iso look)
+[X] Many cubes from height map (instanced model matrices)
+[X] Backface culling
+[X] Engine/game architecture split
+[X] Logging system (LOG/WARN/ERROR macros)
+[X] Debug mode (F3 wireframe toggle)
+[X] Directional (sun) lighting - diffuse dot(N,L)
 
 NEXT
 ----
+[ ] Camera controls polish (pan/zoom done; follow-player later)
+[ ] Point lights (colored)
+[ ] Render-to-texture (framebuffers)
+[ ] Bloom (the glow)
+[ ] Shadows / SSAO
+[ ] Mutable voxel world (world[x][y][z]) - dig/place
+[ ] Player entity (GL-rendered, in-world)
+[ ] Entity system (player, flowers, items, shrines)
+[ ] First gameplay: dig -> plant -> light reveals cave
+[ ] UI / text rendering
+[ ] Particles
 
-[X] Tilemap rendering
-    - find and load a tileset PNG
-    - render tile grid
-    - learn source rectangles
+GAMEPLAY VISION (north star - not built yet)
+----------------
+"Reclaim the dark"
+World has gone dark. You descend by minig, bloom colered light
+along the way, harvest essence to power tools/shrines, and the
+endgame is emerging back up into the dayligt...?
 
-[X] Tile collision
-    - wall tiles
-    - collision map
-    - iterate tile grid
-
-[ ] Camera system
-    - camera offset
-    - follow player
-    - world vs screen coordinates?
-
-[X] Sprite rendering
-    - SDL_Texture
-    - SDL_RenderCopy
-    - sprite sheets
-
-[ ] Basic world
-    - gameplay?
-    - trees, grass, pathways, obstacles
-
-[ ] EC...Maybe?
-    - enemy struct/classes
-    - update/render seperation
-
-[ ] others
-    - particles!!
-    - lighting!!
-    - shadows
-    - UI
-    - OpenGL backend
-    - use Wave Function Collapse for world gen? (maybe too optimistic)
+Core loop:
+- Mine down for resources
+- Plant flowers
+- Harvest essence
+- Craft better tools, activate shrines, open portals to go deeper
+- Endgame: ascend back to the surface / sunlight
 
 Notes:
 Concepts used
@@ -168,5 +171,23 @@ count per attribute.
     pos = 3 (x,y,z, 3D space)
     UV  = 2 (u,v,   2D img)
 VAO receipe (glVertexAttribPointer) must match: 3 for pos, 2 for UV.
+
+Normals + Directional Lighting
+----------------
+Lighting needs to know which way each surface face so the normal,
+a vector perpendicular to the face. Each cube face's 6 verts share
+one normal (top face -> (0,1,0) right face -> (1,0,0), etc).
+
+Vertex layout gew: pos(3) + normal(3) + uv(2) = 8 floats/vertex.
+VAO: attr0=pos(3) off0, attr1=normal(3) off3, attr2=uv(2) off6, stride 8.
+
+The whole lighting model in one line (fragment shader):
+    diff = max(dot(N, L), 0.0)
+N = surface normal, L = direction to the light.
+dot measures alignment: face pointing at light = 1 (bright),
+perpendicular = 0 (dark). clamp at 0 so backfaces dont go negative.
+
+final = ambient + diff * strength
+ambient around 0.25 keeps shadowed faces from being pure black.
 
 
