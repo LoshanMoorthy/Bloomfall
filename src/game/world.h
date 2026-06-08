@@ -1,21 +1,37 @@
 #pragma once
 
-constexpr int MAP_WIDTH = 10;
-constexpr int MAP_HEIGHT = 10;
+#include <cstdint>
+
+constexpr int WORLD_X = 32;
+constexpr int WORLD_Y = 16;
+constexpr int WORLD_Z = 32;
 
 struct World {
-    int height_map[MAP_HEIGHT][MAP_WIDTH] = {
-        {1, 1, 1, 4, 1, 1, 1, 1, 1, 1},
-        {1, 2, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 2, 1, 1, 1, 1},
-        {1, 1, 1, 1, 2, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 3, 1, 1, 1, 1, 1},
-        {1, 1, 1, 2, 3, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 3, 3, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 3, 1}
-    };
+    uint8_t voxels[WORLD_X * WORLD_Y * WORLD_Z];
 
-    int height_at(int x, int y) const { return height_map[y][x]; }
+    // flatten 3D coords -> 1D index
+    int index(int x, int y, int z) const {
+        return x + WORLD_X * (y + WORLD_Y * z);
+    }
+
+    bool in_bounds(int x, int y, int z) const {
+        return x >= 0 && x < WORLD_X &&
+               y >= 0 && y < WORLD_Y &&
+               z >= 0 && z < WORLD_Z;
+    }
+
+    uint8_t get(int x, int y, int z) const {
+        if (!in_bounds(x, y, z)) return 0;
+        return voxels[index(x, y, z)];
+    }
+
+    void set(int x, int y, int z, uint8_t v) {
+        if (in_bounds(x, y, z)) voxels[index(x, y, z)] = v;
+    }
+
+    bool is_solid(int x, int y, int z) const {
+        return get(x, y, z) != 0;
+    }
+
+    void generate();
 };

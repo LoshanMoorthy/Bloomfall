@@ -15,6 +15,7 @@ file(GLOB_RECURSE BLOOMFALL_SOURCES CONFIGURE_DEPENDS
     src/game/*.cpp
     src/engine/*.cpp
     src/main.cpp
+    src/external/FastNoiseLite.h
 )
 
 add_executable(Bloomfall ${BLOOMFALL_SOURCES})

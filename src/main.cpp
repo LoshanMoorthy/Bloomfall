@@ -18,6 +18,8 @@
 #include "engine/screen_quad.h"
 
 #include "game/world.h"
+#include "game/voxel_mesh.h"
+#include "game/player.h"
 
 const int WINDOW_WIDTH = 1280;
 const int WINDOW_HEIGHT = 720;
@@ -75,16 +77,21 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Mesh cube = create_cube_mesh();
     World world;
+    world.generate();
+
+    int cut_height = 100;
+    Mesh world_mesh = build_voxel_mesh(world, cut_height);
+    Mesh cube = create_cube_mesh();
 
     GLuint texture = load_texture("D:/c_projects/Bloomfall/assets/tile/deep_rock.png");
     if (texture == 0) return 1;
 
     Camera camera;
-    camera.position = glm::vec3(5.0f, 0.0f, 5.0f);
-    camera.aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
-    camera.ortho_size = 7.0f; // smaller = more zoomed
+    camera.ortho_size = 10.0f;
+
+    Player player;
+    player.position = glm::vec3(WORLD_X/2, 1, WORLD_Z/2);
 
     Uint32 last_tick = SDL_GetTicks();
     bool running = true;
@@ -93,11 +100,12 @@ int main(int argc, char *argv[]) {
     Debug debug;
 
     std::vector<Light> lights = {
-        {{2,2,2}, {5.0f, 1.0f, 0.5f}},
-        {{7,2,3}, {0.5f, 5.0f, 1.0f}},
-        {{4,2,7}, {1.0f, 1.5f, 5.0f}},
-        {{6,2,6}, {5.0f, 4.0f, 0.5f}},
+        {{14, 1, 14}, {6.0f, 0.5f, 0.5f}},   // red
+        {{18, 1, 16}, {0.5f, 6.0f, 0.5f}},   // green
+        {{16, 1, 19}, {0.5f, 0.5f, 6.0f}},   // blue
+        {{20, 1, 13}, {6.0f, 5.0f, 0.5f}},   // yellow
     };
+
     while (running) {
         Uint32 frame_start = SDL_GetTicks();
 
@@ -106,9 +114,9 @@ int main(int argc, char *argv[]) {
             if (event.type == SDL_KEYDOWN)
                 debug.handle_key(event.key.keysym.scancode);
             if (event.type == SDL_MOUSEWHEEL) {
-                camera.ortho_size -= event.wheel.y * 0.5f;
-                if (camera.ortho_size < 1.0f)  camera.ortho_size = 1.0f;
-                if (camera.ortho_size > 30.0f) camera.ortho_size = 30.0f;
+                camera.ortho_size -= event.wheel.y;
+                if (camera.ortho_size < 5) camera.ortho_size = 5;
+                if (camera.ortho_size > 60) camera.ortho_size = 60;
             }
         }
 
@@ -119,11 +127,14 @@ int main(int argc, char *argv[]) {
 
         const Uint8 *keys = SDL_GetKeyboardState(nullptr);
 
-        float pan_speed = 5.0f;   // world units per second
-        if (keys[SDL_SCANCODE_W]) camera.position.z -= pan_speed * delta_time;
-        if (keys[SDL_SCANCODE_S]) camera.position.z += pan_speed * delta_time;
-        if (keys[SDL_SCANCODE_A]) camera.position.x -= pan_speed * delta_time;
-        if (keys[SDL_SCANCODE_D]) camera.position.x += pan_speed * delta_time;
+        float move_speed = 8.0f * delta_time;
+        glm::vec3 move(0.0f);
+        if (keys[SDL_SCANCODE_W]) move.z -= 1.0f;
+        if (keys[SDL_SCANCODE_S]) move.z += 1.0f;
+        if (keys[SDL_SCANCODE_A]) move.x -= 1.0f;
+        if (keys[SDL_SCANCODE_D]) move.x += 1.0f;
+        if (glm::length(move) > 0.0f)
+            player.position += glm::normalize(move) * move_speed;
 
         // draw scene into fb
         scene_fb.bind();
@@ -133,18 +144,27 @@ int main(int argc, char *argv[]) {
 
         debug.apply();
 
+        camera.target = player.position;
         glm::mat4 view = camera.view();
         glm::mat4 projection = camera.projection();
 
         shader.use();
-        shader.set_vec3("uSunDir", glm::vec3(-0.5f, -1.0f, -0.3f)); // sun shining down-ish
-        shader.set_int("uLightCount", (int)lights.size());
+
+        int total_lights = (int)lights.size() + 1;
+        shader.set_int("uLightCount", total_lights);
         for (size_t i = 0; i < lights.size(); i++) {
             std::string base = "uLightPos[" + std::to_string(i) + "]";
-            shader.set_vec3(base.c_str(), lights[i].position);
             std::string cbase = "uLightColor[" + std::to_string(i) + "]";
+            shader.set_vec3(base.c_str(), lights[i].position);
             shader.set_vec3(cbase.c_str(), lights[i].color);
         }
+
+        int pi = (int)lights.size();
+        std::string pp = "uLightPos["   + std::to_string(pi) + "]";
+        std::string pc = "uLightColor[" + std::to_string(pi) + "]";
+        shader.set_vec3(pp.c_str(), player.position + glm::vec3(0, 1.0f, 0));
+        shader.set_vec3(pc.c_str(), glm::vec3(3.0f, 1.8f, 0.8f));
+
         shader.set_mat4("uView", view);
         shader.set_mat4("uProjection", projection);
 
@@ -152,19 +172,15 @@ int main(int argc, char *argv[]) {
         glBindTexture(GL_TEXTURE_2D, texture);
         shader.set_int("uTexture", 0);
 
-        for (int y = 0; y < MAP_HEIGHT; y++) {
-            for (int x = 0; x < MAP_WIDTH; x++) {
-                int h = world.height_at(x, y);
-                for (int z = 0; z < h; z++) {
-                    glm::mat4 model =
-                        glm::translate(
-                            glm::mat4(1.0f),
-                            glm::vec3((float)x, (float)z, (float)y));
-                    shader.set_mat4("uModel", model);
-                    draw_mesh(cube);
-                }
-            }
-        }
+        shader.set_vec3("uTint", glm::vec3(1.0f));
+        glm::mat4 world_model = glm::mat4(1.0f);
+        shader.set_mat4("uModel", world_model);
+        draw_mesh(world_mesh);
+
+        shader.set_vec3("uTint", glm::vec3(1.0f, 0.4f, 0.2f));
+        glm::mat4 player_model = glm::translate(glm::mat4(1.0f), player.position);
+        shader.set_mat4("uModel", player_model);
+        draw_mesh(cube);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
